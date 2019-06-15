@@ -2,6 +2,86 @@ import torch
 import torch.nn as nn
 import pdb
 
+'''class EMNetv3(nn.Module):
+	# network architecture:
+
+	# input(1xWxH) -> conv features -> fully-connected -> 
+	# 							-> fusion -> regression-loss and prediction
+	# input(1xWxH) -> conv features -> fully-connected -> 
+
+	def __init__(self, models, fusion_method):
+		super(EMNetv3, self).__init__()
+
+		self.network_A = EMNetv2(models) # CCDImage
+		self.network_B = EMNetv2(models) # ThermalImage
+		
+		# remove the last layers from the each network
+		new_regress_module_A = update_regress_module(network_A)
+		self.network_A.regress_module = new_regress_module_A
+
+		new_regress_module_B = update_regress_module(network_B)
+		self.network_B.regress_module = new_regress_module_B
+
+
+		# apply the 'fusion_method' and add fully connected layers on the fused features
+		if (fusion_method == 'concat'):
+			
+
+		# fully-connected layer 3: 256 (nodes) -> 64 (nodes)
+		self.regress_module.add_module('fc4', nn.Linear(64, 32))
+		self.regress_module.add_module('relu4', nn.ReLU())
+		self.regress_module.add_module('drop4', nn.Dropout(0.5))
+
+
+		# fully-connected layer 4: 64 (nodes) -> 1 (node)
+		self.regress_module.add_module('fc5', nn.Linear(16, 1))
+		# there is no non-linear layer at the output layer.
+
+
+		# all the fully connected layer will be learned during backprop
+		for param in self.regress_module.parameters():
+		    param.requires_grad = True
+
+
+	def update_regress_module(self, network):
+		mod = list(self.network.regress_module.children())
+		last_fc = mod.pop()		# UNUSED last_fc
+		# save the rest
+		new_regress_module  = nn.Sequential(*mod) 
+		return new_regress_module
+
+	def forward(self, x):
+
+		vis = 0
+		output = self.conv1_block(x)
+		output = self.conv2_block(output)
+		output = self.conv3_block(output)
+		if (vis):
+			print("feature map size() after conv1_3_block: {}".format(output.size()))
+
+		output = self.conv4_block_conv1(output)
+		output = self.conv4_block_drop1(output)
+		output = self.conv4_block_conv2(output)
+		output = self.conv4_block_drop2(output)
+		output = self.conv4_block_conv3(output)
+		output = self.conv4_block_drop3(output)
+		if (vis):
+			print("feature map size() after conv4_block: {}".format(output.size()))
+
+		output = self.conv5_block_module(output)
+		if (vis):
+			print("feature map size() after conv5_block: {}".format(output.size()))
+
+		output = output.view(output.size(0),-1)
+		output = self.regress_module(output)
+		#output = output.view(output.size(0),-1)
+		#output = output.squeeze()		
+		if (vis):
+			print("feature map size() after fc layers: {}".format(output.size()))
+
+		return output
+
+'''
 
 class EMNetv2(nn.Module):
 	# network architecture:

@@ -101,7 +101,7 @@ def load_last_model():
 def resume_training():
 	start_epoch, all_epoch_losses = load_last_model()
 	#pdb.set_trace()
-	for epoch in range(start_epoch + 1, start_epoch + epochs + 1):
+	for epoch in range(start_epoch + 1, epochs + 1):
 		epoch_loss = train_model(epoch)
 		all_epoch_losses.append(epoch_loss)
 
@@ -436,6 +436,7 @@ if (is_train == True):
 	#pdb.set_trace()
 
 else:	
+	model_epoch_num = model_name.split('_')[-4]
 	model_file_name = model_path + model_name
 	model_file 	= Path(model_file_name)
 	is_model_file 	= model_file.exists()
@@ -448,7 +449,7 @@ else:
 	print("Evaluting the model on {} ...".format(eval_set))
 	data_loader 	= torch.utils.data.DataLoader(emfpdata, batch_size=batch_size, shuffle=False) # don't shuffle. images will be processed sequentially
 	predicted, gt 	= test_model()
-	output_file_name = output_file_path + '/' + saved_feat_name + '_' + eval_set + '.mat'
+	output_file_name = output_file_path + '/' + saved_feat_name + '_' + model_epoch_num + '_' + eval_set + '.mat'
 	scipy.io.savemat(output_file_name, {'pred':predicted, 'gt':gt})
 
 
