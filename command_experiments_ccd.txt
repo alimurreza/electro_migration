@@ -1,0 +1,83 @@
+================================================================================================================================
+TRAIN:
+------
+-emnetv2
+-electro_migra_002
+-lr = 10-6
+$python train_model_v2.py --dataset_name='electro_migra_002' --data_path='data/electro_migra_002/' --network_name='emnetv2' --model_path='models/model_emnetv2_electro_migra_002_lr.000001/' --output_path='output/output_emnetv2_electro_migra_002_lr.000001/' --lr=0.000001 --epochs=4000 --batch_size=1 --device_id=0 --is_train=True --eval_set='train'
+
+ 
+
+TEST:
+-----
+$python train_model_v2.py --dataset_name='electro_migra_002' --data_path='data/electro_migra_002/' --network_name='emnetv2' --model_name='ModelEpoch_2485_Train_loss_7.5417.pth' --model_path='models/model_emnetv2_electro_migra_002_lr.000001/' --output_path='output/output_emnetv2_electro_migra_002_lr.000001/' --batch_size=1 --device_id=0 --is_train=False --eval_set='train'
+
+
+$python train_model_v2.py --dataset_name='electro_migra_002' --data_path='data/electro_migra_002/' --network_name='emnetv2' --model_name='ModelEpoch_2485_Train_loss_7.5417.pth' --model_path='models/model_emnetv2_electro_migra_002_lr.000001/' --output_path='output/output_emnetv2_electro_migra_002_lr.000001/' --batch_size=1 --device_id=0 --is_train=False --eval_set='test'
+
+
+
+
+================================================================================================================================
+TRAIN:
+------
+-emnetv2
+-electro_migra_003
+-lr = 10-6
+$python train_model_v2.py --dataset_name='electro_migra_003' --data_path='data/electro_migra_003/' --network_name='emnetv2' --model_path='models/model_emnetv2_electro_migra_003_lr.000001/' --output_path='output/output_emnetv2_electro_migra_003_lr.000001/' --lr=0.000001 --epochs=4000 --batch_size=1 --device_id=0 --is_train=True --eval_set='train'
+
+ 
+
+TEST:
+-----
+$python train_model_v2.py --dataset_name='electro_migra_003' --data_path='data/electro_migra_003/' --network_name='emnetv2' --model_name='ModelEpoch_1475_Train_loss_7.2933.pth' --model_path='models/model_emnetv2_electro_migra_003_lr.000001/' --output_path='output/output_emnetv2_electro_migra_003_lr.000001/' --batch_size=1 --device_id=0 --is_train=False --eval_set='train'
+
+
+$python train_model_v2.py --dataset_name='electro_migra_003' --data_path='data/electro_migra_003/' --network_name='emnetv2' --model_name='ModelEpoch_1475_Train_loss_7.2933.pth' --model_path='models/model_emnetv2_electro_migra_003_lr.000001/' --output_path='output/output_emnetv2_electro_migra_003_lr.000001/' --batch_size=1 --device_id=0 --is_train=False --eval_set='test'
+
+
+================================================================================================================================
+TRAIN:
+------
+-emnetv2
+-electro_migra_005_025
+-experiment for the failure at the constriction
+-lr = 10-6
+
+$python train_model_v2.py --dataset_name='electro_migra_005_025' --data_path='data/electro_migra_005_025/' --network_name='emnetv2' --model_path='models/model_emnetv2_electro_migra_005_025_lr.000001/' --output_path='output/output_emnetv2_electro_migra_005_025_lr.000001/' --lr=0.000001 --epochs=2500 --epoch_save_interval=100 --batch_size=1 --device_id=0 --is_train=True --eval_set='train'
+
+ 
+
+TEST:
+-----
+$python train_model_v2.py --dataset_name='electro_migra_005_025' --data_path='data/electro_migra_005_025/' --network_name='emnetv2' --model_name='???' --model_path='models/model_emnetv2_electro_migra_005_025_lr.000001/' --output_path='output/output_emnetv2_electro_migra_005_025_lr.000001/' --batch_size=1 --device_id=0 --is_train=False --eval_set='train'
+
+
+$python train_model_v2.py --dataset_name='electro_migra_005_025' --data_path='data/electro_migra_005_025/' --network_name='emnetv2' --model_name='???' --model_path='models/model_emnetv2_electro_migra_005_025_lr.000001/' --output_path='output/output_emnetv2_electro_migra_005_025_lr.000001/' --batch_size=1 --device_id=0 --is_train=False --eval_set='test'
+
+
+================================================================================================================================
+TRAIN:
+------
+-CCD image
+-emnetv2
+-same experiment but with a different split
+-failure_at_void_v2
+-experiment for the failure at the constriction
+-lr = 10-6
+
+$python train_model_v3.py --dataset_name='failure_at_void_v2' --data_path='data/failure_at_void_v2/' --network_name='emnetv2' --model_path='models/model_emnetv2_failure_at_void_v2_ccd_lr.000001/' --output_path='output/output_emnetv2_failure_at_void_v2_ccd_lr.000001/' --lr=0.000001 --epochs=2500 --epoch_save_interval=100 --batch_size=1 --device_id=0 --is_train=True --eval_set='train' --input_image_type='ccd'
+
+ 
+
+TEST:
+-----
+$python train_model_v3.py --dataset_name='' --data_path='data/failure_at_void_v2/' --network_name='emnetv2' --model_name='???' --model_path='models/model_emnetv2_failure_at_void_v2_ccd_lr.000001/' --output_path='output/output_emnetv2_failure_at_void_v2_ccd_lr.000001/' --batch_size=1 --device_id=0 --is_train=False --eval_set='train' --input_image_type='ccd'
+
+
+$python train_model_v3.py --dataset_name='' --data_path='data/failure_at_void_v2/' --network_name='emnetv2' --model_name='???' --model_path='models/model_emnetv2_failure_at_void_v2_ccd_lr.000001/' --output_path='output/output_emnetv2_failure_at_void_v2_ccd_lr.000001/' --batch_size=1 --device_id=0 --is_train=False --eval_set='test' --input_image_type='ccd'
+
+
+
+
+

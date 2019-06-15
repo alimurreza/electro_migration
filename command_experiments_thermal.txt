@@ -1,0 +1,25 @@
+================================================================================================================================
+TRAIN:
+------
+-Thermal
+-emnetv2
+-failure_at_void_v2
+-experiment for the failure at the constriction
+-lr = 10-6
+
+
+$python train_model_v3.py --dataset_name='failure_at_void_v2' --data_path='data/failure_at_void_v2/' --network_name='emnetv2' --model_path='models/model_emnetv2_failure_at_void_v2_thermal_lr.000001/' --output_path='output/output_emnetv2_failure_at_void_v2_thermal_lr.000001/' --lr=0.000001 --epochs=2500 --epoch_save_interval=100 --batch_size=1 --device_id=0 --is_train=True --eval_set='train' --input_image_type='thermal'
+
+
+
+TEST:
+-----
+$python train_model_v3.py --dataset_name='' --data_path='data/failure_at_void_v2/' --network_name='emnetv2' --model_name='???' ---model_path='models/model_emnetv2_failure_at_void_v2_thermal_lr.000001/' --output_path='output/output_emnetv2_failure_at_void_v2_thermal_lr.000001/' --batch_size=1 --device_id=0 --is_train=False --eval_set='train' --input_image_type='thermal'
+
+
+$python train_model_v3.py --dataset_name='' --data_path='data/failure_at_void_v2/' --network_name='emnetv2' --model_name='???' --model_path='models/model_emnetv2_failure_at_void_v2_thermal_lr.000001/' --output_path='output/output_emnetv2_failure_at_void_v2_thermal_lr.000001/' --batch_size=1 --device_id=0 --is_train=False --eval_set='test' --input_image_type='thermal'
+
+
+
+
+

@@ -1,0 +1,41 @@
+================================================================================================================================
+TRAIN:
+------
+-emnetv2
+-electro_migra_002
+-lr = 10-6
+$python train_model_v2.py --dataset_name='electro_migra_002' --data_path='data/electro_migra_002/' --network_name='emnetv2' --model_path='models/model_emnetv2_electro_migra_002_lr.000001/' --output_path='output/output_emnetv2_electro_migra_002_lr.000001/' --lr=0.000001 --epochs=4000 --batch_size=1 --device_id=0 --is_train=True --eval_set='train'
+
+ 
+
+TEST:
+-----
+$python train_model_v2.py --dataset_name='electro_migra_002' --data_path='data/electro_migra_002/' --network_name='emnetv2' --model_name='ModelEpoch_2485_Train_loss_7.5417.pth' --model_path='models/model_emnetv2_electro_migra_002_lr.000001/' --output_path='output/output_emnetv2_electro_migra_002_lr.000001/' --batch_size=1 --device_id=0 --is_train=False --eval_set='train'
+
+
+$python train_model_v2.py --dataset_name='electro_migra_002' --data_path='data/electro_migra_002/' --network_name='emnetv2' --model_name='ModelEpoch_2485_Train_loss_7.5417.pth' --model_path='models/model_emnetv2_electro_migra_002_lr.000001/' --output_path='output/output_emnetv2_electro_migra_002_lr.000001/' --batch_size=1 --device_id=0 --is_train=False --eval_set='test'
+
+
+
+
+================================================================================================================================
+TRAIN:
+------
+-emnetv2
+-electro_migra_003
+-lr = 10-6
+$python train_model_v2.py --dataset_name='electro_migra_003' --data_path='data/electro_migra_003/' --network_name='emnetv2' --model_path='models/model_emnetv2_electro_migra_003_lr.000001/' --output_path='output/output_emnetv2_electro_migra_003_lr.000001/' --lr=0.000001 --epochs=4000 --batch_size=1 --device_id=0 --is_train=True --eval_set='train'
+
+ 
+
+TEST:
+-----
+$python train_model_v2.py --dataset_name='electro_migra_003' --data_path='data/electro_migra_003/' --network_name='emnetv2' --model_name='ModelEpoch_1475_Train_loss_7.2933.pth' --model_path='models/model_emnetv2_electro_migra_003_lr.000001/' --output_path='output/output_emnetv2_electro_migra_003_lr.000001/' --batch_size=1 --device_id=0 --is_train=False --eval_set='train'
+
+
+$python train_model_v2.py --dataset_name='electro_migra_003' --data_path='data/electro_migra_003/' --network_name='emnetv2' --model_name='ModelEpoch_1475_Train_loss_7.2933.pth' --model_path='models/model_emnetv2_electro_migra_003_lr.000001/' --output_path='output/output_emnetv2_electro_migra_003_lr.000001/' --batch_size=1 --device_id=0 --is_train=False --eval_set='test'
+
+
+
+
+
