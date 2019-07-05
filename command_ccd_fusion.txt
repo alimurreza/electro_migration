@@ -1,0 +1,40 @@
+
+================================================================================================================================
+# fusion experiment 
+
+TRAIN:
+------
+- CCD + Thermal image
+- data/electro_migra_003
+- emnetv4
+- train_script_v4.py
+- lr=10-6
+
+
+$python train_model_v4.py --dataset_name='electro_migra_003' --data_path='data/electro_migra_003/' --network_name='emnetv4' --model_path='models/model_emnetv4_electro_migra_003_fusion_lr.000001/' --output_path='output/output_emnetv4_electro_migra_003_fusion_lr.000001/' --lr=0.000001 --epoch_save_interval=100 --epochs=4000 --batch_size=1 --device_id=0 --is_train=True --eval_set='train' --fusion_method='concat'
+
+
+TEST:
+-----
+$python train_model_v4.py 
+--model_name=''
+--dataset_name='electro_migra_003' 
+--data_path='data/electro_migra_003/' 
+--network_name='emnetv3' 
+--model_path='models/model_emnetv3_electro_migra_003_ccd_lr.000001/' 
+--output_path='output/output_emnetv3_electro_migra_003_ccd_lr.000001/' 
+--batch_size=1 --device_id=0 --is_train=False --eval_set='train'  --fusion_method='concat'
+
+
+$python train_model_v4.py 
+--model_name=''
+--dataset_name='electro_migra_003' 
+--data_path='data/electro_migra_003/' 
+--network_name='emnetv3' 
+--model_path='models/model_emnetv3_electro_migra_003_ccd_lr.000001/' 
+--output_path='output/output_emnetv3_electro_migra_003_ccd_lr.000001/' 
+--batch_size=1 --device_id=0 --is_train=False --eval_set='test'  --fusion_method='concat'
+
+
+================================================================================================================================
+
