@@ -27,52 +27,65 @@ from network import *
 from skimage.transform import pyramid_gaussian # multi-scale input
 
 
-class EMFPData(object):
+class EMFPDataPair(object):
 
-	def __init__(self, dsets_images, failure_times, num_of_images, start=0):
+	def __init__(self, dsets_images_a, dsets_images_b, failure_times, num_of_images, start=0):
 
 		pil2tensor = transforms.ToTensor()
-		X_scale0 = []
-		Y = []
+		Xa_scale0 	= []
+		Xb_scale0 	= []
+		Y 		= []
 		#pdb.set_trace()
 		vis_for_debug = 0
 		for i in range(start, num_of_images):
-			cur_img, cur_label = dsets_images.__getitem__(i) 	# cur_img: instance of PIL object, cur_label: cropped_image(0) or uncropped_image(1)
-			cur_path = dsets_images.imgs[i]
-			#pdb.set_trace()
-			cur_tensor = pil2tensor(cur_img) 			# (3, h, w) dim tensor
-			scale0 = cur_tensor 					
-			scale0 = scale0.numpy()					# ranges [0...1]
 
-			# sanity check the data with visualization (different modalities): REZA 06/10/19			
-			#cur_tensor_trans = cur_tensor.numpy().transpose(1,2,0)
-			#plt.figure()
-			#plt.imshow(cur_tensor_trans)
-			#plt.show()
-			#pdb.set_trace()
+			# get the CCD image
+			cur_img_a, cur_label_a 	= dsets_images_a.__getitem__(i) 	# cur_img: instance of PIL object, cur_label: cropped_image(0) or uncropped_image(1)
+			cur_path 		= dsets_images_a.imgs[i]
+			cur_tensor 		= pil2tensor(cur_img_a) 		# (3, h, w) dim tensor
+			a_scale0 		= cur_tensor 					
+			a_scale0 		= a_scale0.numpy()			# ranges [0...1]
+
+			# get the thermal image
+			cur_img_b, cur_label_b 	= dsets_images_b.__getitem__(i) 	# cur_img: instance of PIL object, cur_label: cropped_image(0) or uncropped_image(1)
+			cur_path 		= dsets_images_b.imgs[i]
+			cur_tensor 		= pil2tensor(cur_img_b) 		# (3, h, w) dim tensor
+			b_scale0 		= cur_tensor 					
+			b_scale0 		= b_scale0.numpy()			# ranges [0...1]
+
+
+			# pdb.set_trace()
+
+			'''# sanity check the data with visualization (different modalities): REZA 06/10/19			
+			cur_tensor_trans = cur_tensor.numpy().transpose(1,2,0)
+			plt.figure()
+			plt.imshow(cur_tensor_trans)
+			plt.show()
+			#pdb.set_trace()'''
+
 
 			# gt failure times
-			#cur_ft 	= []
-			cur_ft 	= failure_times[i][0] 				# cur_ft is a failure time (in percentage)
-			cur_ft 	= np.float32(cur_ft) 				# convert to Float32 instead of Double
-			#cur_ft.append(tmp)
+			cur_ft 	= failure_times[i][0] 					# cur_ft is a failure time (in percentage)
+			cur_ft 	= np.float32(cur_ft) 					# convert to Float32 instead of Double
 					
 			#pdb.set_trace()
 			if (i%5 == 0):
 				print("Electro Migration Failure Prediction: data generated for {} prediction {} ".format(i, cur_path[0]))
 			#print("{}. label is {}".format(i, cur_ft))
 
-			X_scale0.append(scale0) 	# value ranges [0,1]
+			Xa_scale0.append(a_scale0) 	# value ranges [0,1] for CCD image
+			Xb_scale0.append(b_scale0) 	# value ranges [0,1] for thermal image
 			Y.append(cur_ft) 		# value ranges [0,100] since it will be used with 
 
 
-		self.x_scale0 		= X_scale0
+		self.xa_scale0 		= Xa_scale0
+		self.xb_scale0 		= Xb_scale0
 		self.label 		= Y
-		self.size 		= len(X_scale0)
-		print("EMFPData has {} elements".format(self.size))
+		self.size 		= len(Xa_scale0)
+		print("EMFPDataPair has {} elements".format(self.size))
 
 	def __getitem__(self, index):
-		return (self.x_scale0[index], self.label[index])
+		return (self.xa_scale0[index], self.xb_scale0[index], self.label[index])
 
 	def __len__(self):
 		return self.size
@@ -120,19 +133,20 @@ def train_model(epoch):
 	running_loss = 0
 	running_batch_count = 0
 
-	for index, (x_scale0, classes) in enumerate(data_loader):
+	for index, (xa_scale0, xb_scale0, classes) in enumerate(data_loader):
 		if (is_cuda):
-			input1, classes = Variable(x_scale0.cuda()), Variable(classes.cuda())
+			input1, input2, classes = Variable(xa_scale0.cuda()), Variable(xb_scale0.cuda()), Variable(classes.cuda())
 		else:
-			input1, classes = Variable(x_scale0), Variable(classes)
+			input1, input2, classes = Variable(xa_scale0), Variable(xb_scale0), Variable(classes)
 
 		optimizer.zero_grad()
 
-		output1 = model(input1)
+		output1 = model(input1, input2)
 		# Reza (01/19): DEBUG reshape the ground-truth and the prediction
 		#output1 = output1.view(output1.size(0),-1)
 		#classes = classes.view(classes.size(0),-1)
-		#unsq_classes = torch.unsqueeze(classes, 1);
+		#unsq_classes = torch.unsqueeze(classes, 1)
+
 		#pdb.set_trace()
 
 		loss = criterion(output1.squeeze(), classes.squeeze()) # MSELoss() or Smooth-L1 Loss()
@@ -163,17 +177,18 @@ def test_model():
 	model.eval() # this is a must step # otherwise batchnorm layer and dropout layer are in train mode by default
 	preds = []
 	labels = []
-	for index, (x_scale0, classes) in enumerate(data_loader):
+
+	for index, (xa_scale0, xb_scale0, classes) in enumerate(data_loader):
 		if (is_cuda):
-			input1, classes = Variable(x_scale0.cuda()), Variable(classes.cuda())
+			input1, input2, classes = Variable(xa_scale0.cuda()), Variable(xb_scale0.cuda()), Variable(classes.cuda())
 		else:
-			input1, classes = Variable(x_scale0), Variable(classes)
+			input1, input2, classes = Variable(xa_scale0), Variable(xb_scale0), Variable(classes)
 
 		print("Cuda enabled {}".format(is_cuda))
 		#print("input1: shape of the inputs before feeding into model {}".format(input1.size()))
 		# pdb.set_trace()
 
-		output1 = model(input1) # 2D feature repres. of two inputs
+		output1 = model(input1, input2) 			# 2D feature repres. of two inputs
 		
 		print("batch {} ... ".format(index))
 
@@ -242,8 +257,8 @@ parser.add_argument('--model_name', default='None',
                     help='trained model name e.g., used during evaluation stage')
 parser.add_argument('--eval_set', default='test',
                     help='which set to evaluate the model when is_train=False')
-parser.add_argument('--input_image_type', default='CCD',
-                    help='Modality of the input: i) CCD, ii) Thermal, iii) Both')
+parser.add_argument('--fusion_method', default='concat',
+                    help='fusion of features from two different modalities of input: i) concat, ii) element-wise multiplication, iii) TBD')
 
 
 args 			= parser.parse_args()
@@ -259,7 +274,7 @@ epoch_save_interval 	= args.epoch_save_interval
 is_train 	 	= args.is_train
 eval_set 		= args.eval_set
 model_name 		= args.model_name
-input_image_type 	= args.input_image_type
+fusion_method 		= args.fusion_method
 
 #pdb.set_trace()
 #------------------------------------------------------------------------------------------------
@@ -327,12 +342,12 @@ elif (network_name == 'emnetv2'):
 	# Smooth L1 loss + Adam
 	saved_feat_name  = 'emnetv2_feat'
 
-elif (network_name == 'emnetv3'):
-	model = EMNetv3(models)
-	pdb.set_trace()
+elif (network_name == 'emnetv4'):
+	model = EMNetv4(models)
+	#pdb.set_trace()
 	#--------------------------------------------------------------------------------	
 	# Smooth L1 loss + Adam
-	saved_feat_name  = 'emnetv3_feat'
+	saved_feat_name  = 'emnetv4_feat'
 
 
 elif (network_name== 'alexnet'):
@@ -382,60 +397,35 @@ datasetName 	  	= 'emdatasetv2'
 if (eval_set == 'train'):
 	
 	#pdb.set_trace()
-	#dsets 		= {'train_image': datasets.ImageFolder(data_path + '/train', transform=None)}
-	#dsets_image 	= dsets['train_image']
-
-	if (input_image_type == 'ccd'):
-		print("data_path ->{}".format(data_path + '/train_ccd'))
-		dsets 			= {'train_image': datasets.ImageFolder(data_path + '/train_ccd', transform=None)}
-		dsets_image 		= dsets['train_image']
-
-	elif(input_image_type == 'thermal'):
-		print("data_path ->{}".format(data_path + '/train_thermal'))
-		dsets 			= {'train_image': datasets.ImageFolder(data_path + '/train_thermal', transform=None)}
-		dsets_image 		= dsets['train_image']
-
-	else:
-		dsets 			= {'train_image': datasets.ImageFolder(data_path + '/train_ccd', transform=None)}
-		dsets_image_ccd 	= dsets['train_image']
-		dsets 			= {'train_image': datasets.ImageFolder(data_path + '/train_thermal', transform=None)}
-		dsets_image_thermal 	= dsets['train_image']
-		print("Processing for multi-modal image inputs is incomplete ...")
-		pdb.set_trace()
+	print("Processing for multi-modal inputs ...")	
+	print("data_path ->{}".format(data_path + '/train_ccd'))
+	dsets 			= {'train_image': datasets.ImageFolder(data_path + '/train_ccd', transform=None)}
+	dsets_image_ccd 	= dsets['train_image']
+	dsets 			= {'train_image': datasets.ImageFolder(data_path + '/train_thermal', transform=None)}
+	dsets_image_thermal 	= dsets['train_image']
+	#pdb.set_trace()
 
 	labels 		= sio.loadmat(data_path + '/failure_times_train_sorted.mat')
 
 elif (eval_set == 'test'):
 	
-	if (input_image_type == 'ccd'):
-		print("data_path ->{}".format(data_path + '/test'))
-		dsets 			= {'test_image': datasets.ImageFolder(data_path + '/test_ccd', transform=None)}
-		dsets_image 		= dsets['test_image']
-
-	elif(input_image_type == 'thermal'):
-		print("data_path ->{}".format(data_path + '/test_thermal'))
-		dsets 			= {'test_image': datasets.ImageFolder(data_path + '/test_thermal', transform=None)}
-		dsets_image 		= dsets['test_image']
-
-	else:
-		dsets 			= {'test_image': datasets.ImageFolder(data_path + '/test_ccd', transform=None)}
-		dsets_image_ccd 	= dsets['test_image']
-		dsets 			= {'test_image': datasets.ImageFolder(data_path + '/test_thermal', transform=None)}
-		dsets_image_thermal 	= dsets['test_image']
-		print("Processing for multi-modal image inputs is incomplete ...")
-		pdb.set_trace()
+	print("Processing for multi-modal image inputs is incomplete ...")
+	print("data_path ->{}".format(data_path + '/test'))
+	dsets 			= {'test_image': datasets.ImageFolder(data_path + '/test_ccd', transform=None)}
+	dsets_image_ccd 	= dsets['test_image']
+	dsets 			= {'test_image': datasets.ImageFolder(data_path + '/test_thermal', transform=None)}
+	dsets_image_thermal 	= dsets['test_image']
+	# pdb.set_trace()
 	
-
 	labels 		= sio.loadmat(data_path + '/failure_times_test_sorted.mat')
 else:
 	print('eval_set=Unknown')
 	pdb.set_trace()
 
 #pdb.set_trace()
-labels 		= labels['failure_times']
-total_images 	= len(dsets_image)
-emfpdata 	= EMFPData(dsets_image, labels, total_images, start=0)
-#pdb.set_trace()
+labels 			= labels['failure_times']
+total_images 		= len(dsets_image_ccd)
+emfpdata 		= EMFPDataPair(dsets_image_ccd, dsets_image_thermal, labels, total_images, start=0)
 
 
 if (is_train == True):	
