@@ -26,7 +26,7 @@ from pathlib import Path
 from network import *
 from skimage.transform import pyramid_gaussian # multi-scale input
 
-
+import sklearn.metrics as sklearn_metrics
 class EMFPDataPair(object):
 
 	def __init__(self, dsets_images_a, dsets_images_b, failure_times, num_of_images, start=0):
@@ -46,6 +46,10 @@ class EMFPDataPair(object):
 			a_scale0 		= cur_tensor 					
 			a_scale0 		= a_scale0.numpy()			# ranges [0...1]
 
+			if (i%5 == 0):
+				print("Electro Migration Failure Prediction: data generated for {} prediction {} ".format(i, cur_path[0]))
+			
+
 			# get the thermal image
 			cur_img_b, cur_label_b 	= dsets_images_b.__getitem__(i) 	# cur_img: instance of PIL object, cur_label: cropped_image(0) or uncropped_image(1)
 			cur_path 		= dsets_images_b.imgs[i]
@@ -54,6 +58,9 @@ class EMFPDataPair(object):
 			b_scale0 		= b_scale0.numpy()			# ranges [0...1]
 
 
+			if (i%5 == 0):
+				print("Electro Migration Failure Prediction: data generated for {} prediction {} ".format(i, cur_path[0]))
+			
 			# pdb.set_trace()
 
 			'''# sanity check the data with visualization (different modalities): REZA 06/10/19			
@@ -69,8 +76,6 @@ class EMFPDataPair(object):
 			cur_ft 	= np.float32(cur_ft) 					# convert to Float32 instead of Double
 					
 			#pdb.set_trace()
-			if (i%5 == 0):
-				print("Electro Migration Failure Prediction: data generated for {} prediction {} ".format(i, cur_path[0]))
 			#print("{}. label is {}".format(i, cur_ft))
 
 			Xa_scale0.append(a_scale0) 	# value ranges [0,1] for CCD image
@@ -184,13 +189,13 @@ def test_model():
 		else:
 			input1, input2, classes = Variable(xa_scale0), Variable(xb_scale0), Variable(classes)
 
-		print("Cuda enabled {}".format(is_cuda))
+		#print("Cuda enabled {}".format(is_cuda))
 		#print("input1: shape of the inputs before feeding into model {}".format(input1.size()))
 		# pdb.set_trace()
 
 		output1 = model(input1, input2) 			# 2D feature repres. of two inputs
 		
-		print("batch {} ... ".format(index))
+		#print("batch {} ... ".format(index))
 
 		tmp = output1.data.cpu()
 		preds.append(tmp.numpy().tolist())
@@ -343,7 +348,7 @@ elif (network_name == 'emnetv2'):
 	saved_feat_name  = 'emnetv2_feat'
 
 elif (network_name == 'emnetv4'):
-	model = EMNetv4(models)
+	model = EMNetv4(models,fusion_method=fusion_method)
 	#pdb.set_trace()
 	#--------------------------------------------------------------------------------	
 	# Smooth L1 loss + Adam
@@ -434,20 +439,76 @@ if (is_train == True):
 	#pdb.set_trace()
 
 else:	
-	model_file_name = model_path + model_name
-	model_file 	= Path(model_file_name)
-	is_model_file 	= model_file.exists()
-	if (is_model_file == 0):
-		os.error('Error loading (model file does not exist): ' + model_file_name)
-	else:
-		print("Loading model {} ...".format(model_file_name))
-		model.load_state_dict(torch.load(model_file_name))
 	
+
+	def compute_rmse(pred, gt):
+		pred_array = []
+		gt_array = []
+
+		for ii in range(len(gt)):
+			gt_array.append(gt[ii][0])
+			pred_array.append(pred[ii][0][0])	
+
+		rmse 			= np.sqrt(sklearn_metrics.mean_squared_error(gt_array, pred_array))
+		mae 		 	= sklearn_metrics.mean_absolute_error(gt_array, pred_array)
+		#pdb.set_trace()
+		print("RMSE={}".format(rmse))
+		print("MAE={}".format(mae))
+
+		return rmse, mae
+
+
+	## Test All Models
+	all_models = glob(model_path + '/*.pth')
+	all_epochs = []
+	all_mae = []
+	all_rmse = []
+	best_rmse = 9999
+	best_mae = 99999
+	best_epoch = 0
+	best_model = ''
 	print("Evaluting the model on {} ...".format(eval_set))
-	data_loader 	= torch.utils.data.DataLoader(emfpdata, batch_size=batch_size, shuffle=False) # don't shuffle. images will be processed sequentially
-	predicted, gt 	= test_model()
-	output_file_name = output_file_path + '/' + saved_feat_name + '_' + eval_set + '.mat'
-	scipy.io.savemat(output_file_name, {'pred':predicted, 'gt':gt})
+	data_loader 	= torch.utils.data.DataLoader(emfpdata, batch_size=batch_size, shuffle=False) # don't shuffle. images will be processed sequentially	
+	for m in all_models:
+		model_epoch_num = m.split('_')[-4]
+		#pdb.set_trace()
+		m_name = os.path.basename(m)
+		model_file_name = model_path + m_name
+		model_file 	= Path(model_file_name)
+		
+		is_model_file 	= model_file.exists()
+		if (is_model_file == 0):
+			os.error('Error loading (model file does not exist): ' + model_file_name)
+		else:
+			print("Loading model {} ...".format(model_file_name))
+			model.load_state_dict(torch.load(model_file_name))
+
+		print("Evaluting the model on {} ...".format(eval_set))
+		predicted, gt 	= test_model()
+		output_file_name = output_file_path + '/' + saved_feat_name + '_' + model_epoch_num + '_' + eval_set + '.mat'
+		scipy.io.savemat(output_file_name, {'pred':predicted, 'gt':gt})
+		rmse, mae = compute_rmse(predicted, gt)
+
+		if rmse < best_rmse:
+			best_rmse = rmse
+			best_mae = mae
+			best_epoch = int(model_epoch_num)
+			best_model = m_name
+			print("best ", best_rmse, ' best_epoch', best_epoch)
+
+		## epoch, rmse, mae
+		all_epochs.append(int(model_epoch_num))
+		all_mae.append(mae)
+		all_rmse.append(rmse)
+		
+
+
+	scipy.io.savemat("save_results.mat",{'epochs':all_epochs, 'mae':all_mae, 'rmse':all_rmse, 'best_epoch':best_epoch,'best_mae':best_mae,'best_rmse':best_rmse})
+
+
+
+
+
 
 
 

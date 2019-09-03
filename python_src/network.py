@@ -28,10 +28,10 @@ class EMNetv4(nn.Module):
 		self.regress_module = torch.nn.Sequential()
 
 
-		# fully-connected layer 4: 128 (nodes) -> 64 (nodes)
-		self.regress_module.add_module('fc4', nn.Linear(128, 64))
-		self.regress_module.add_module('relu4', nn.ReLU())
-		self.regress_module.add_module('drop4', nn.Dropout(0.5))
+		# fully-connected layer 4: 128 (nodes) -> 64 (nodes) ( Fusion method torch add, torch multiply)
+		#self.regress_module.add_module('fc4', nn.Linear(128, 64))
+		#self.regress_module.add_module('relu4', nn.ReLU())
+		#self.regress_module.add_module('drop4', nn.Dropout(0.5))
 
 
 		# fully-connected layer 5: 64 (nodes) -> 32 (nodes)
@@ -63,13 +63,38 @@ class EMNetv4(nn.Module):
 		
 		output_a = self.network_A(x_a)
 		output_b = self.network_B(x_b)
+
+		
 		#pdb.set_trace()	
 		if (vis):
 			print("feature map size() after EMnetv3 (input CCD image): {}".format(output_a.size()))
 			print("feature map size() after EMnetv3 (input Thermal image): {}".format(output_b.size()))
+		
+		
 		# apply the 'fusion_method' and add fully connected layers on the fused features
 		if (self.fusion_method == 'concat'):
 			output = torch.cat([output_a, output_b], 1)
+
+		elif(self.fusion_method == 'concat_add'):
+			output = torch.add(output_a,output_b)
+		elif(self.fusion_method == 'concat_mul'):
+			output = torch.mul(output_a,output_b)
+		elif(self.fusion_method == 'concat_lstm'):
+			output = torch.mul(torch.tanh(output_a), torch.sigmoid(output_b))
+		
+		## method 8: A *(1+B)
+		elif(self.fusion_method=='concat_mult_add'):
+			output = torch.mul(output_a,(1+output_b))
+	
+		elif(self.fusion_method=='concat_conv'):
+			## concat
+			output1 = torch.cat([output_a, output_b])
+			## conv 
+			output2 = torch.FloatTensor(np.convolve(output_a.numpy(), output_b.numpy()))
+			
+			output = torch.mult(output1, output2)
+			
+
 		else:
 			print('fusion_method is not defined')
 			pdb.set_trace()			
@@ -79,6 +104,7 @@ class EMNetv4(nn.Module):
 
 		output = self.regress_module(output)
 
+		
 		if (vis):
 			print("feature map size() after regress_module (multiple layers of fcs): {}".format(output.size()))
 
