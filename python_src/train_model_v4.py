@@ -23,10 +23,12 @@ from pathlib import Path
 
 
 # my classes
+import sklearn.metrics as sklearn_metrics
+
 from network import *
 from skimage.transform import pyramid_gaussian # multi-scale input
 
-import sklearn.metrics as sklearn_metrics
+
 class EMFPDataPair(object):
 
 	def __init__(self, dsets_images_a, dsets_images_b, failure_times, num_of_images, start=0):
@@ -46,10 +48,6 @@ class EMFPDataPair(object):
 			a_scale0 		= cur_tensor 					
 			a_scale0 		= a_scale0.numpy()			# ranges [0...1]
 
-			if (i%5 == 0):
-				print("Electro Migration Failure Prediction: data generated for {} prediction {} ".format(i, cur_path[0]))
-			
-
 			# get the thermal image
 			cur_img_b, cur_label_b 	= dsets_images_b.__getitem__(i) 	# cur_img: instance of PIL object, cur_label: cropped_image(0) or uncropped_image(1)
 			cur_path 		= dsets_images_b.imgs[i]
@@ -58,9 +56,6 @@ class EMFPDataPair(object):
 			b_scale0 		= b_scale0.numpy()			# ranges [0...1]
 
 
-			if (i%5 == 0):
-				print("Electro Migration Failure Prediction: data generated for {} prediction {} ".format(i, cur_path[0]))
-			
 			# pdb.set_trace()
 
 			'''# sanity check the data with visualization (different modalities): REZA 06/10/19			
@@ -76,6 +71,8 @@ class EMFPDataPair(object):
 			cur_ft 	= np.float32(cur_ft) 					# convert to Float32 instead of Double
 					
 			#pdb.set_trace()
+			if (i%5 == 0):
+				print("Electro Migration Failure Prediction: data generated for {} prediction {} ".format(i, cur_path[0]))
 			#print("{}. label is {}".format(i, cur_ft))
 
 			Xa_scale0.append(a_scale0) 	# value ranges [0,1] for CCD image
@@ -99,7 +96,9 @@ class EMFPDataPair(object):
 def load_last_model():
 	
 	models 			= glob(model_path + '/*.pth')	
-	all_epoch_losses 	= np.array([])	
+	all_epoch_losses 	= np.array([])
+	all_epoch_val_losses = np.array([])	
+
 	if models:
 		#pdb.set_trace()
 		model_ids = [(int(f.split('_')[-4]), f) for f in models]
@@ -107,28 +106,58 @@ def load_last_model():
 		print('Last checkpoint: ', last_cp)
 		model.load_state_dict(torch.load(last_cp))
 		all_losses 		= scipy.io.loadmat(model_path + '/Losses_epoch_{}'.format(start_epoch))		
-		all_epoch_losses 	= all_losses['all_epoch_losses'][0]
+		all_epoch_losses 	= all_losses['all_epoch_train_losses'][0]
+		all_epoch_val_losses = all_losses['all_epoch_val_losses'][0]
 	else:
 		start_epoch = 0
 		last_cp = ''
 	#pdb.set_trace()
-	return start_epoch, all_epoch_losses.tolist()
+	return start_epoch, all_epoch_losses.tolist(), all_epoch_val_losses.tolist()
 
 
 
 
 def resume_training():
-	start_epoch, all_epoch_losses = load_last_model()
+	start_epoch, all_epoch_losses, all_epoch_val_losses = load_last_model()
 	#pdb.set_trace()
 	for epoch in range(start_epoch + 1, start_epoch + epochs + 1):
 		epoch_loss = train_model(epoch)
+		val_loss = evaluate_model(epoch)
+
 		all_epoch_losses.append(epoch_loss)
+		all_epoch_val_losses.append(val_loss)
 
 		if (epoch%epoch_save_interval == 0):			
 			torch.save(model.state_dict(), model_path + '/ModelEpoch_{}_Train_loss_{:.4f}.pth'.format(epoch, epoch_loss))
-			scipy.io.savemat(model_path + '/Losses_epoch_{}'.format(epoch), {'all_epoch_losses': all_epoch_losses})
-			#scipy.io.savemat(model_path + '/Losses_epoch_{}'.format(epoch), {'all_loss': all_loss, 'all_epoch_losses': all_epoch_losses})
+			scipy.io.savemat(model_path + '/Losses_epoch_{}'.format(epoch), {'all_epoch_train_losses': all_epoch_losses,'all_epoch_val_losses':all_epoch_val_losses})
+			
 
+def evaluate_model(epoch):
+	model.eval()
+	with torch.no_grad():
+		running_loss = 0
+		running_batch_count = 0
+		for index, (xa_scale0, xb_scale0, classes) in enumerate(data_loader):
+			if (is_cuda):
+				input1, input2, classes = Variable(xa_scale0.cuda()), Variable(xb_scale0.cuda()), Variable(classes.cuda())
+			else:
+				input1, input2, classes = Variable(xa_scale0), Variable(xb_scale0), Variable(classes)
+
+			output1 = model(input1, input2)
+
+			loss = criterion(output1.squeeze(), classes.squeeze())
+
+			running_loss += loss.data.item()
+			running_batch_count = running_batch_count + batch_size
+
+
+			if (index%10 == 0):
+				print("epoch {}/{} batch {}: val loss {} ..".format(epoch,epochs, index, running_loss/running_batch_count))
+
+	epoch_loss_v = running_loss / total_val_images
+
+	return epoch_loss_v
+				
 
 def train_model(epoch):
 
@@ -412,6 +441,22 @@ if (eval_set == 'train'):
 
 	labels 		= sio.loadmat(data_path + '/failure_times_train_sorted.mat')
 
+	## Validation Images
+	## Validation Dataset images
+	
+	val_dsets			= {'val_image': datasets.ImageFolder(data_path + '/val_ccd', transform=None)}
+	val_dsets_image_ccd 		= val_dsets['val_image']
+
+
+	val_dsets			= {'val_image': datasets.ImageFolder(data_path + '/val_thermal', transform=None)}
+	val_dsets_image_thermal 		= val_dsets['val_image']
+
+
+	val_labels 		= sio.loadmat(data_path + '/failure_times_val_sorted.mat')
+
+
+
+
 elif (eval_set == 'test'):
 	
 	print("Processing for multi-modal image inputs is incomplete ...")
@@ -435,12 +480,15 @@ emfpdata 		= EMFPDataPair(dsets_image_ccd, dsets_image_thermal, labels, total_im
 
 if (is_train == True):	
 	data_loader 	= torch.utils.data.DataLoader(emfpdata, batch_size=batch_size, shuffle=True)
+	total_val_images = len(val_dsets_image_ccd)
+	val_labels = val_labels['failure_times']
+
+	emfpdata_val 		= EMFPDataPair(val_dsets_image_ccd, val_dsets_image_thermal, val_labels, total_val_images, start=0)
+	val_loader = torch.utils.data.DataLoader(emfpdata_val, batch_size=batch_size, shuffle=False)
 	resume_training()	
 	#pdb.set_trace()
 
 else:	
-	
-
 	def compute_rmse(pred, gt):
 		pred_array = []
 		gt_array = []
@@ -506,75 +554,3 @@ else:
 	scipy.io.savemat("save_results.mat",{'epochs':all_epochs, 'mae':all_mae, 'rmse':all_rmse, 'best_epoch':best_epoch,'best_mae':best_mae,'best_rmse':best_rmse})
 
 
-
-
-
-
-
-
-'''eval_feat_train_or_test = 0
-
-# models/emdatasetv2
-model_dir_name = 'models/' + datasetName
-model_dir = Path(model_dir_name)
-is_model_dir = model_dir.exists()
-#pdb.set_trace()
-if (is_model_dir == 0):
-	os.mkdir(model_dir)
-	print("created model directory ... {}".format(model_dir))
-
-model_file_name = 'models/' + datasetName + '/' + saved_model_name + '.pth'
-model_file = Path(model_file_name)
-is_model_file = model_file.exists()
-
-if (is_model_file == 0):
-	model_scratch.train(True)
-	loader_train = torch.utils.data.DataLoader(emfpdata_train, batch_size=batch_size, shuffle=True)
-	print("Training the model ... ")
-	t0 = time.time()
-	all_loss, all_epoch_losses = train_model(model_scratch, data_loader=loader_train, batch_size=batch_size, scheduler=scheduler1, size=total_images_train, epochs=epoch,optimizer=optimizer, is_cuda=is_cuda)
-	
-	#pdb.set_trace()
-
-	print("Training time {}".format(time.time()-t0))
-	torch.save(model_scratch, model_file_name)
-	print("Saving the trained model {} ".format(model_file_name))
-	# 'models/' + datasetName + '/' +
-	output_file_name = 'models/' + datasetName + '/' + saved_model_name + "_loss.mat"
-	scipy.io.savemat(output_file_name, {'all_loss': all_loss, 'all_epoch_losses': all_epoch_losses})
-else:
-
-	print("Loading model {} ...".format(model_file_name))
-	model_scratch = torch.load(model_file_name)
-	model_scratch.eval() # otherwise batchnorm layer and dropout layer are in train mode by default
-	if (use_gpu == True):
-	    model_scratch = model_scratch.cuda()
-
-	if (eval_feat_train_or_test == 1):
-
-		print("Evaluting the model on the train set ...")
-		loader_train = torch.utils.data.DataLoader(emfpdata_train, batch_size=batch_size, shuffle=False)
-		print("Forward pass on the train set ... ")
-		predicted, gt = test_model(model_scratch, loader_train, is_cuda=True)
-		saved_train_set_name = 'train'
-		# output/emdatasetv2/emnetv2/*.mat
-		output_dir_name = "output/" + datasetName + '/' + model_name
-		output_dir = Path(output_dir_name)
-		is_output_dir = output_dir.exists()
-		if (is_output_dir == 0):
-			os.makedirs(output_dir)
-			print("created output directory ... {}".format(is_output_dir))			
-		output_file_name 	= "output/" + datasetName + '/' + model_name  + "/"  + saved_feat_name + "_" + saved_train_set_name + ".mat"
-		scipy.io.savemat(output_file_name, {'pred':predicted, 'gt':gt})
-
-	else:
-
-		print("Evaluting the model on the test set ...")
-		loader_test = torch.utils.data.DataLoader(emfpdata_test, batch_size=batch_size, shuffle=False)
-		
-		print("Forward pass on the test set ... ")
-		predicted, gt = test_model(model_scratch, loader_test, is_cuda=True)
-		saved_test_set_name = 'test'
-		# output/emdatasetv1/emnetv1/*.mat		
-		output_file_name 	= "output/" + datasetName + '/' + model_name  + "/"  + saved_feat_name + "_" + saved_test_set_name + ".mat"
-		scipy.io.savemat(output_file_name, {'pred':predicted, 'gt':gt})'''
